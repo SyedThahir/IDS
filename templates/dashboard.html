@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ML-Based IDS Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .stats-card {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .alert-list {
+            height: 400px;
+            overflow-y: auto;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+            position: relative;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .status-active {
+            background-color: #28a745;
+            box-shadow: 0 0 8px rgba(40, 167, 69, 0.5);
+        }
+        .status-inactive {
+            background-color: #dc3545;
+            box-shadow: 0 0 8px rgba(220, 53, 69, 0.5);
+        }
+        .refresh-button {
+            float: right;
+            margin-top: -40px;
+            transition: all 0.3s ease;
+        }
+        .refresh-button:hover {
+            transform: rotate(180deg);
+        }
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+            gap: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">ML-Based Network Intrusion Detection System</h1>
+        <button class="btn btn-secondary refresh-button" onclick="window.location.reload()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        
+        <!-- Stats Cards Row 1 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Total Packets</h4>
+                    <h2 id="total-packets">0</h2>
+                    <small class="text-muted">Processed packets</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Malicious Packets</h4>
+                    <h2 id="malicious-packets">0</h2>
+                    <small class="text-muted"><span id="malicious-percent">0</span>% of total</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>Processing Rate</h4>
+                    <h2><span id="packets-per-second">0</span>/s</h2>
+                    <small class="text-muted">Packets per second</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4>System Status</h4>
+                    <div>
+                        <span class="status-indicator" id="rf-status"></span>
+                        Random Forest
+                    </div>
+                    <div>
+                        <span class="status-indicator" id="svm-status"></span>
+                        SVM
+                    </div>
+                    <div>
+                        <span class="status-indicator" id="queue-status"></span>
+                        Queue (<span id="queue-size">0</span>)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="stats-card">
+                    <h4>Traffic Analysis</h4>
+                    <div class="chart-container">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="stats-card">
+                    <h4>Protocol Distribution</h4>
+                    <div class="chart-container">
+                        <canvas id="protocolChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Filter Section -->
+        <div class="filter-section">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="ip" placeholder="Filter by IP" value="{{ request.args.get('ip', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="protocol">
+                        <option value="">All Protocols</option>
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                        <option value="IP">IP</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="severity">
+                        <option value="">All Severity</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="port" placeholder="Filter by Port">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <button type="button" class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Alerts Table -->
+        <div class="stats-card">
+            <h4>Recent Alerts</h4>
+            <div class="alert-list">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Protocol</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>Flags</th>
+                            <th>Payload</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alerts-body">
+                        {% for alert in alerts %}
+                        <tr>
+                            <td>{{ alert.split(' - ')[1].split('Source')[0] }}</td>
+                            <td>{{ 'TCP' if 'TCP' in alert else 'UDP' if 'UDP' in alert else 'IP' }}</td>
+                            <td>{{ alert.split('Source: ')[1].split(' ->')[0] if 'Source: ' in alert else '' }}</td>
+                            <td>{{ alert.split('Destination: ')[1].split(' Flags')[0] if 'Destination: ' in alert else '' }}</td>
+                            <td>{{ alert.split('Flags: ')[1].split(' Payload')[0] if 'Flags: ' in alert else 'N/A' }}</td>
+                            <td>{{ alert.split('Payload size: ')[1].split(' bytes')[0] if 'Payload size: ' in alert else '0' }} bytes</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize charts
+        const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+        const protocolCtx = document.getElementById('protocolChart').getContext('2d');
+        
+        // Traffic Analysis Chart
+        const trafficChart = new Chart(trafficCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Packets/s',
+                    data: [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 750,
+                    easing: 'easeInOutQuart'
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + '/s';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Network Traffic Rate',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `Traffic Rate: ${context.raw}/s`;
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+
+        // Protocol Distribution Chart
+        const protocolChart = new Chart(protocolCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['TCP', 'UDP', 'Other'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        'rgb(255, 99, 132)',
+                        'rgb(54, 162, 235)',
+                        'rgb(255, 205, 86)'
+                    ],
+                    borderColor: [
+                        'rgb(255, 255, 255)',
+                        'rgb(255, 255, 255)',
+                        'rgb(255, 255, 255)'
+                    ],
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 750,
+                    easing: 'easeInOutQuart'
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Protocol Distribution',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'right',
+                        labels: {
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                return `${context.label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Update stats every second
+        function updateStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Update stats cards
+                    document.getElementById('total-packets').textContent = data.total_packets;
+                    document.getElementById('malicious-packets').textContent = data.malicious_packets;
+                    document.getElementById('malicious-percent').textContent = data.malicious_percent;
+                    document.getElementById('packets-per-second').textContent = data.packets_per_second;
+                    document.getElementById('queue-size').textContent = data.queue_size;
+
+                    // Update status indicators
+                    updateStatusIndicator('rf-status', data.models_loaded);
+                    updateStatusIndicator('svm-status', data.models_loaded);
+                    updateStatusIndicator('queue-status', data.queue_size < 100);
+
+                    // Update traffic chart
+                    updateTrafficChart(data.packets_per_second);
+
+                    // Update protocol distribution chart
+                    if (data.protocol_distribution) {
+                        updateProtocolChart(data.protocol_distribution);
+                    }
+                });
+        }
+
+        function updateStatusIndicator(id, isActive) {
+            const indicator = document.getElementById(id);
+            indicator.className = 'status-indicator ' + (isActive ? 'status-active' : 'status-inactive');
+        }
+
+        function updateTrafficChart(packetsPerSecond) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            trafficChart.data.labels.push(timeStr);
+            trafficChart.data.datasets[0].data.push(packetsPerSecond);
+
+            // Keep last 30 data points for better trend visualization
+            if (trafficChart.data.labels.length > 30) {
+                trafficChart.data.labels.shift();
+                trafficChart.data.datasets[0].data.shift();
+            }
+
+            trafficChart.update('none'); // Update without animation for smoother transitions
+        }
+
+        function updateProtocolChart(distribution) {
+            protocolChart.data.datasets[0].data = [
+                distribution.tcp || 0,
+                distribution.udp || 0,
+                distribution.other || 0
+            ];
+            protocolChart.update('none'); // Update without animation for smoother transitions
+        }
+
+        function clearFilters() {
+            window.location.href = '/';
+        }
+
+        // Update stats initially and every second
+        updateStats();
+        setInterval(updateStats, 1000);
+
+        // Reload alerts every 30 seconds
+        setInterval(() => {
+            fetch(window.location.pathname + window.location.search)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    document.getElementById('alerts-body').innerHTML = doc.getElementById('alerts-body').innerHTML;
+                });
+        }, 30000);
+    </script>
+</body>
+</html>
