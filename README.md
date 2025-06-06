@@ -103,7 +103,7 @@ sudo python monitor.py
 ## Project Structure
 
 ```
-advanced_ids/
+IDS/
 ├── app.py              # Web dashboard application
 ├── ml_ids_core.py      # Core ML and packet processing
 ├── monitor.py          # Command-line monitoring
@@ -112,11 +112,6 @@ advanced_ids/
 ├── logs/              # System logs
 └── templates/         # Web dashboard templates
 ```
-
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
