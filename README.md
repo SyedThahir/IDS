@@ -39,7 +39,7 @@ A machine learning-based Network Intrusion Detection System (IDS) that uses Rand
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/advanced_ids.git
+git clone https://github.com/SyedThahir/IDS.git
 cd advanced_ids
 ```
 
